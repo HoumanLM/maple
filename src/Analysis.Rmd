@@ -9,4 +9,58 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Required libraries
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyverse)
+# if (!require("devtools")) install.packages("devtools")
+# 
+# # Install GAMBLR.open
+# devtools::install_github(
+#     "morinlab/GAMBLR.open",
+#     repos = BiocManager::repositories()
+# )
+
+library(devtools)
+library(GAMBLR.open)
+```
+
+
+## Metadata of GCB-DLBCL and ABC-DLBCL 
+
+```{r}
+meta_dlbcl_GCB_ABC = GAMBLR.open::get_gambl_metadata() %>%
+                      filter(pathology == "DLBCL",
+                             COO_consensus %in% c("GCB", "ABC")
+                             )
+```
+
+
+## Obtain matched RNA-seq data
+
+```{r}
+all_rna_seq = read_tsv("../data_raw/Blood_2023_GE.tsv.gz")
+
+# metadata of DLBCL samples with RNA-seq data
+rna_meta_dlbcl_GCB_ABC = meta_dlbcl_GCB_ABC %>%
+                          filter(sample_id %in% colnames(all_rna_seq))
+
+# RNA-seq data of DLBCL samples
+rna_df_dlbcl = all_rna_seq %>%
+                dplyr::select(ensembl_gene_id,
+                              rna_meta_dlbcl_GCB_ABC$sample_id
+                              )
+
+rna_df_dlbcl = GAMBLR.helpers::translate_ensg_ids(df = rna_df_dlbcl)
+
+genes_dropped = c("AKAP17A", "AMD1P2", "ASMT", "ASMTL", "ASMTL-AS1", "CD99", "CD99P1", "CRLF2", "CSF2RA", "DDX11L16", "DHRSX", "DHRSX-IT1", "DPH3P2", "DUXAP8", "ELOCP24", "FABP5P13", "GOLGA8M", "GPR84-AS1", "GTPBP6", "HERC3", "IL3RA", "IL9R", "ITFG2-AS1", "KRT18P53", "LINC00102", "LINC00106", "LINC00685", "LINC01238", "LINC02203", "LINC02968", "MIR3690", "MIR6089", "P2RY8", "PINX1", "PLCXD1", "POLR2J3", "PPP2R3B", "RNA5SP498", "RPL14P5", "SCARNA4", "SHOX", "SIGLEC5", "SLC25A6", "SNORA16A", "SNORA17B", "SNORA50A", "SNORD38B", "SNORD3D", "SPRY3", "TBCE", "TNFRSF10A-DT", "TRPC6P1", "VAMP7", "WASH6P", "WASIR1", "ZBED1")
+
+rna_df_dlbcl = rna_df_dlbcl %>% 
+                 filter(!hgnc_symbol %in% genes_dropped, !is.na(hgnc_symbol))
+
+write_tsv(rna_df_dlbcl %>% column_to_rownames(var = "hgnc_symbol"), file = "./data/DLBCL_RNA_seq_matrix.tsv")
+
+```
 
